@@ -1,3 +1,7 @@
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Lenis from "lenis";
+
 /* Force scroll top on load/reload */
 history.scrollRestoration = "manual";
 window.scrollTo(0, 0);
@@ -24,7 +28,6 @@ document.addEventListener("DOMContentLoaded", () => {
   gsap.ticker.add((t) => lenis.raf(t * 1000));
   gsap.ticker.lagSmoothing(0);
 
-  // Rattrape la restauration tardive du navigateur (après load)
   const forceTop = () => {
     window.scrollTo(0, 0);
     lenis.scrollTo(0, { immediate: true });
@@ -96,8 +99,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =====================================================
-   GLOBAL UI — SCROLL INDICATOR
-===================================================== */
+     GLOBAL UI — SCROLL INDICATOR
+  ===================================================== */
 
   const scrollIndicator = qs(".scroll");
 
@@ -146,7 +149,6 @@ document.addEventListener("DOMContentLoaded", () => {
       lenis.on("scroll", onFirstScroll);
     };
 
-    // 👉 expose globalement pour le loader
     window.__initScrollIndicator = initScrollIndicator;
   }
 
@@ -163,7 +165,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const words = [];
 
-    // Collecte tous les noeuds texte (préserve <br>, <em>, etc.)
     const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
     const textNodes = [];
     while (walker.nextNode()) textNodes.push(walker.currentNode);
@@ -482,14 +483,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* =====================================================
-     ABOUT — IMAGE SCALE → LOGO SCALE (SEQUENTIAL)
+     ABOUT — IMAGE SCALE / LOGO SCALE (SEQUENTIAL)
   ===================================================== */
 
   const aboutImg = qs("#aboutImg");
   const aboutLogoImg = qs(".logo-img");
 
   if (aboutImg && aboutLogoImg) {
-    // États initiaux
     gsap.set(aboutImg, { scale: IMG_SCALE_MIN });
     gsap.set(aboutLogoImg, { scale: IMG_SCALE_MIN });
 
@@ -503,14 +503,12 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     });
 
-    // PHASE 1 — aboutImg : 0.5 → 1 (0 → 100vh)
     aboutScaleTimeline.to(aboutImg, {
       scale: 1,
       ease: "none",
       duration: 1,
     });
 
-    // PHASE 2 — logoImg : 0.5 → 1 (100 → 200vh)
     aboutScaleTimeline.to(aboutLogoImg, {
       scale: 1,
       ease: "none",
@@ -606,8 +604,8 @@ document.addEventListener("DOMContentLoaded", () => {
   ScrollTrigger.refresh();
 
   /* =====================================================
-   LOADER — CHAOTIC / ORGANIC
-===================================================== */
+     LOADER — CHAOTIC / ORGANIC
+  ===================================================== */
 
   const loader = qs(".loader");
   const counterLoader = qs("#counterLoader");
@@ -616,8 +614,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (loader && counterLoader && totalLoader) {
     const TOTAL = archiveItems.length;
 
-    const WAIT_BEFORE_START = 1000; // 1s à 00
-    const DURATION = 3000; // durée réelle de chargement
+    const WAIT_BEFORE_START = 1000;
+    const DURATION = 3000;
     const START = performance.now() + WAIT_BEFORE_START;
 
     let current = 0;
@@ -626,14 +624,12 @@ document.addEventListener("DOMContentLoaded", () => {
     counterLoader.textContent = "00";
     totalLoader.textContent = String(TOTAL).padStart(2, "0");
 
-    // Lock scroll
     lenis.stop();
     document.body.style.overflow = "hidden";
 
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
     const update = (now) => {
-      // Phase 1 — attente volontaire
       if (now < START) {
         requestAnimationFrame(update);
         return;
@@ -642,23 +638,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const elapsed = now - START;
       const progress = clamp(elapsed / DURATION, 0, 1);
 
-      // Valeur MAX autorisée à cet instant
       const maxAllowed = Math.floor(progress * TOTAL);
 
-      // Fréquence d’update aléatoire (irrégulière)
       if (now - lastUpdate > Math.random() * 180 + 40) {
         lastUpdate = now;
 
         if (current < maxAllowed) {
           const remaining = maxAllowed - current;
 
-          // Incrément chaotique
           let step = Math.ceil(Math.random() * remaining);
 
-          // Parfois très lent
           if (Math.random() < 0.35) step = 1;
-
-          // Parfois freeze
           if (Math.random() < 0.15) step = 0;
 
           current = clamp(current + step, 0, maxAllowed);
@@ -669,7 +659,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (progress < 1) {
         requestAnimationFrame(update);
       } else {
-        // Sécurité finale
         counterLoader.textContent = String(TOTAL).padStart(2, "0");
 
         setTimeout(() => {
@@ -683,14 +672,12 @@ document.addEventListener("DOMContentLoaded", () => {
             },
           });
 
-          // Fade out des chiffres
           tl.to([counterLoader, totalLoader], {
             opacity: 0,
             duration: 0.4,
             ease: "power1.out",
           });
 
-          // Loader height 0 + hero slide up simultanés
           const loaderEase = cubicBezier(0.7, 0, 0.25, 1);
 
           gsap.set(loader, { transformOrigin: "top center" });

@@ -1,51 +1,60 @@
 #!/bin/bash
 
 echo ""
-echo "🚀 Starting development environment..."
+echo "  Starting development environment..."
 echo ""
 
-# Start Python server in background
+# Build + watch in background
+npx esbuild src/index.js \
+  --bundle \
+  --outfile=dist/main.js \
+  --format=iife \
+  --target=es2020 \
+  --watch &
+ESBUILD_PID=$!
+
+sleep 1
+
+# Start HTTP server in background
 python3 -u dev-server.py &
 SERVER_PID=$!
 
-# Wait for server to start
-sleep 2
+sleep 1
 
 echo ""
-echo "🔗 Creating public tunnel via serveo.net..."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Creating public tunnel via serveo.net..."
+echo "----------------------------------------------------"
 echo ""
 
 # Create tunnel via serveo.net
 ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:8000 serveo.net 2>&1 | while IFS= read -r line; do
     echo "$line"
     if [[ $line == *"Forwarding HTTP traffic from"* ]]; then
-        # Extract URL from serveo output
         URL=$(echo "$line" | grep -oE 'https://[^ ]+')
         if [[ ! -z "$URL" ]]; then
             echo ""
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "✅ TUNNEL CRÉÉ !"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "----------------------------------------------------"
+            echo "  TUNNEL READY"
+            echo "----------------------------------------------------"
             echo ""
-            echo "📋 COPIEZ CETTE URL DANS WEBFLOW:"
+            echo "  Webflow script tag:"
             echo ""
-            echo "   $URL/main.js"
+            echo "  <script src=\"$URL/main.js\"></script>"
             echo ""
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "----------------------------------------------------"
             echo ""
-            echo "⚡ Workflow:"
-            echo "   1. Modifiez main.js dans VS Code"
-            echo "   2. Cmd+S pour sauvegarder"
-            echo "   3. Rechargez votre page Webflow"
-            echo "   4. Les changements sont instantanés !"
+            echo "  Workflow:"
+            echo "    1. Edit src/index.js"
+            echo "    2. Save (esbuild rebuilds automatically)"
+            echo "    3. Reload Webflow page"
             echo ""
-            echo "⚠️  Gardez ce terminal ouvert pendant le développement"
-            echo "   Press Ctrl+C pour arrêter"
+            echo "  Keep this terminal open."
+            echo "  Press Ctrl+C to stop."
             echo ""
         fi
     fi
 done
 
-# Cleanup on exit
+# Cleanup
+kill $ESBUILD_PID 2>/dev/null
 kill $SERVER_PID 2>/dev/null
