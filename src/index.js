@@ -108,16 +108,18 @@ document.addEventListener("DOMContentLoaded", () => {
     gsap.set(scrollIndicator, { opacity: 0, display: "none" });
 
     let hasScrolled = false;
+    let fadeIn = null;
     let blink = null;
 
     const initScrollIndicator = () => {
       gsap.set(scrollIndicator, { display: "block" });
 
-      gsap.to(scrollIndicator, {
+      fadeIn = gsap.to(scrollIndicator, {
         opacity: 1,
         duration: 0.4,
         ease: "power1.out",
         onComplete: () => {
+          if (hasScrolled) return;
           blink = gsap.to(scrollIndicator, {
             opacity: 0,
             duration: 0.6,
@@ -132,6 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (hasScrolled) return;
         hasScrolled = true;
 
+        fadeIn?.kill();
         blink?.kill();
 
         gsap.to(scrollIndicator, {
