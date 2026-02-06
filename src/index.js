@@ -8,12 +8,23 @@ window.scrollTo(0, 0);
 window.addEventListener("beforeunload", () => window.scrollTo(0, 0));
 
 document.addEventListener("DOMContentLoaded", () => {
+  /* Hide loader counters immediately, set correct total (revealed later via GSAP fade) */
+  const _counter = document.querySelector("#counterLoader");
+  const _total = document.querySelector("#totalLoader");
+  if (_counter) _counter.style.opacity = "0";
+  if (_total) {
+    const n = document.querySelectorAll(".archive-item").length;
+    if (n) _total.textContent = String(n).padStart(2, "0");
+    _total.style.opacity = "0";
+  }
+
   /* =====================================================
      CORE — GSAP / LENIS SETUP
   ===================================================== */
 
   gsap.registerPlugin(ScrollTrigger);
   gsap.config({ force3D: true });
+  ScrollTrigger.config({ ignoreMobileResize: true });
 
   window.scrollTo(0, 0);
   document.documentElement.scrollTop = 0;
@@ -76,6 +87,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resolveVar = (name) =>
     getComputedStyle(document.body).getPropertyValue(name).trim();
 
+  /* Reliable viewport height on mobile (handles iOS address bar) */
+  const getVh = () => window.visualViewport?.height || window.innerHeight;
+
   /* =====================================================
      GLOBAL UI — PROGRESS BAR
   ===================================================== */
@@ -96,63 +110,6 @@ document.addEventListener("DOMContentLoaded", () => {
         invalidateOnRefresh: true,
       },
     });
-  }
-
-  /* =====================================================
-     GLOBAL UI — SCROLL INDICATOR
-  ===================================================== */
-
-  const scrollIndicator = qs(".scroll");
-
-  if (scrollIndicator) {
-    gsap.set(scrollIndicator, { opacity: 0, display: "none" });
-
-    let hasScrolled = false;
-    let fadeIn = null;
-    let blink = null;
-
-    const initScrollIndicator = () => {
-      gsap.set(scrollIndicator, { display: "block" });
-
-      fadeIn = gsap.to(scrollIndicator, {
-        opacity: 1,
-        duration: 0.4,
-        ease: "power1.out",
-        onComplete: () => {
-          if (hasScrolled) return;
-          blink = gsap.to(scrollIndicator, {
-            opacity: 0,
-            duration: 0.6,
-            ease: "power1.inOut",
-            repeat: -1,
-            yoyo: true,
-          });
-        },
-      });
-
-      const onFirstScroll = () => {
-        if (hasScrolled) return;
-        hasScrolled = true;
-
-        fadeIn?.kill();
-        blink?.kill();
-
-        gsap.to(scrollIndicator, {
-          opacity: 0,
-          duration: 0.3,
-          ease: "power1.out",
-          onComplete: () => {
-            gsap.set(scrollIndicator, { display: "none" });
-          },
-        });
-
-        lenis.off("scroll", onFirstScroll);
-      };
-
-      lenis.on("scroll", onFirstScroll);
-    };
-
-    window.__initScrollIndicator = initScrollIndicator;
   }
 
   /* =====================================================
@@ -206,7 +163,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (heroInner) {
     animateSplitText(heroInner, {
       start: "top top",
-      end: () => `+=${window.innerHeight * 2.75}`,
+      end: () => `+=${getVh() * 2.75}`,
     });
   }
 
@@ -245,7 +202,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const img = qs(".selected-img", item);
       if (!img) return;
 
-      gsap.set(item, { height: window.innerHeight * 2 });
+      gsap.set(item, { height: getVh() * 2 });
       gsap.set(img, { scale: from });
 
       gsap.to(img, {
@@ -254,7 +211,7 @@ document.addEventListener("DOMContentLoaded", () => {
         scrollTrigger: {
           trigger: item,
           start: "top top",
-          end: () => `+=${window.innerHeight}`,
+          end: () => `+=${getVh()}`,
           scrub: SCRUB_SMOOTH,
           invalidateOnRefresh: true,
         },
@@ -264,13 +221,20 @@ document.addEventListener("DOMContentLoaded", () => {
     setupScaleItem(first, IMG_SCALE_MIN, 1);
     if (last !== first) setupScaleItem(last, 1, IMG_SCALE_MIN);
 
+    /* Middle items get 1x viewport height */
+    selectedItems.forEach((item) => {
+      if (item !== first && item !== last) {
+        gsap.set(item, { height: getVh() });
+      }
+    });
+
     selectedItems.forEach((item, i) => {
       const next = selectedItems[i + 1];
       if (!next) return;
 
       ScrollTrigger.create({
         trigger: next,
-        start: () => `top bottom-=${window.innerHeight * 0.3}`,
+        start: () => `top ${getVh() * 0.7}px`,
         invalidateOnRefresh: true,
         onEnter: () => {
           item.style.pointerEvents = "none";
@@ -290,6 +254,14 @@ document.addEventListener("DOMContentLoaded", () => {
             overwrite: "auto",
           });
         },
+      });
+    });
+
+    /* Re-apply selected-item heights when viewport changes */
+    ScrollTrigger.addEventListener("refreshInit", () => {
+      selectedItems.forEach((item) => {
+        const h = (item === first || item === last) ? getVh() * 2 : getVh();
+        gsap.set(item, { height: h });
       });
     });
   }
@@ -320,9 +292,6 @@ document.addEventListener("DOMContentLoaded", () => {
         },
       });
 
-      logoImg.addEventListener("click", () => {
-        lenis.scrollTo(0, { duration: 1, easing: easeOutCubic });
-      });
     }
 
     if (logoAnim) {
@@ -350,11 +319,17 @@ document.addEventListener("DOMContentLoaded", () => {
         name.textContent = `NA_Archive_${String(i + 1).padStart(2, "0")}.jpg`;
     });
 
+    const archiveIndex = qs("#archiveIndex");
+    if (archiveIndex) {
+      archiveIndex.textContent = `${String(archiveItems.length).padStart(2, "0")} Archives`;
+    }
+
     gsap.set(archiveItems, { opacity: 0, y: -32 });
 
     ScrollTrigger.batch(archiveItems, {
-      start: "bottom bottom",
+      start: () => `top ${getVh() * 0.9}px`,
       once: true,
+      invalidateOnRefresh: true,
       onEnter: (batch) =>
         gsap.to(batch, {
           opacity: 1,
@@ -500,7 +475,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scrollTrigger: {
         trigger: aboutImg,
         start: "top top",
-        end: () => `+=${window.innerHeight * 2}`,
+        end: () => `+=${getVh() * 2}`,
         scrub: SCRUB_SMOOTH,
         invalidateOnRefresh: true,
       },
@@ -575,8 +550,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!target) return;
 
     btn.addEventListener("click", () => {
-      const el = qs(`.${target}`);
-      if (el) lenis.scrollTo(el, { duration: 1, easing: easeOutCubic });
+      if (target === "about") {
+        lenis.scrollTo(0, { duration: 1, easing: easeOutCubic });
+      } else {
+        const el = qs(`.${target}`);
+        if (el) lenis.scrollTo(el, { duration: 1, easing: easeOutCubic });
+      }
     });
   });
 
@@ -627,6 +606,13 @@ document.addEventListener("DOMContentLoaded", () => {
     counterLoader.textContent = "00";
     totalLoader.textContent = String(TOTAL).padStart(2, "0");
 
+    /* Fade in both counters during the wait period */
+    gsap.to([counterLoader, totalLoader], {
+      opacity: 1,
+      duration: FADE_DURATION,
+      ease: FADE_EASE,
+    });
+
     lenis.stop();
     document.body.style.overflow = "hidden";
 
@@ -670,8 +656,6 @@ document.addEventListener("DOMContentLoaded", () => {
               gsap.set(loader, { display: "none" });
               document.body.style.overflow = "";
               lenis.start();
-
-              window.__initScrollIndicator?.();
             },
           });
 
