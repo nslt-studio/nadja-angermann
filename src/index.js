@@ -14,14 +14,16 @@ document.addEventListener("DOMContentLoaded", () => {
      CORE — GSAP / LENIS SETUP
   ===================================================== */
 
+  const pageWrapper = document.querySelector(".page-wrapper");
+
   gsap.registerPlugin(ScrollTrigger);
   gsap.config({ force3D: true });
   ScrollTrigger.config({ ignoreMobileResize: true });
-
-  window.scrollTo(0, 0);
-  document.documentElement.scrollTop = 0;
+  ScrollTrigger.defaults({ scroller: pageWrapper });
 
   const lenis = new Lenis({
+    wrapper: pageWrapper,
+    content: pageWrapper?.firstElementChild,
     duration: 0.5,
     smooth: true,
   });
@@ -32,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   gsap.ticker.lagSmoothing(0);
 
   const forceTop = () => {
-    window.scrollTo(0, 0);
+    if (pageWrapper) pageWrapper.scrollTop = 0;
     lenis.scrollTo(0, { immediate: true });
   };
   window.addEventListener("load", () => {
@@ -79,8 +81,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const resolveVar = (name) =>
     getComputedStyle(document.body).getPropertyValue(name).trim();
 
-  /* Reliable viewport height on mobile (handles iOS address bar) */
-  const getVh = () => window.visualViewport?.height || window.innerHeight;
+  /* Viewport height — use the fixed container height (100dvh, stable on iOS) */
+  const getVh = () => pageWrapper?.clientHeight || window.innerHeight;
 
   /* =====================================================
      GLOBAL UI — PROGRESS BAR
@@ -345,12 +347,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const lockScroll = () => {
     lenis.stop();
-    document.body.style.overflow = "hidden";
+    if (pageWrapper) pageWrapper.style.overflow = "hidden";
   };
 
   const unlockScroll = () => {
     lenis.start();
-    document.body.style.overflow = "";
+    if (pageWrapper) pageWrapper.style.overflow = "";
   };
 
   const totalStr = String(sliderItems.length).padStart(2, "0");
@@ -512,20 +514,59 @@ document.addEventListener("DOMContentLoaded", () => {
      FOOTER
   ===================================================== */
 
-  qsa(".footer-item").forEach((item) => {
+  const footerItems = qsa(".footer-item");
+  const isTouchDevice = () => window.matchMedia("(hover: none)").matches;
+
+  const closeFooterAccordion = (item) => {
+    const accordion = qs(".footer-accordion", item);
+    const inner = qs(".footer-accordion-inner", item);
+    if (!accordion || !inner) return;
+    accordion.style.maxHeight = "0px";
+    inner.style.pointerEvents = "none";
+    item.dataset.open = "false";
+  };
+
+  const openFooterAccordion = (item) => {
+    const accordion = qs(".footer-accordion", item);
+    const inner = qs(".footer-accordion-inner", item);
+    if (!accordion || !inner) return;
+    accordion.style.maxHeight = `${inner.scrollHeight}px`;
+    inner.style.pointerEvents = "auto";
+    item.dataset.open = "true";
+  };
+
+  footerItems.forEach((item) => {
     const accordion = qs(".footer-accordion", item);
     const inner = qs(".footer-accordion-inner", item);
     if (!accordion || !inner) return;
 
     item.addEventListener("mouseenter", () => {
-      accordion.style.maxHeight = `${inner.scrollHeight}px`;
-      inner.style.pointerEvents = "auto";
+      if (isTouchDevice()) return;
+      openFooterAccordion(item);
     });
 
     item.addEventListener("mouseleave", () => {
-      accordion.style.maxHeight = "0px";
-      inner.style.pointerEvents = "none";
+      if (isTouchDevice()) return;
+      closeFooterAccordion(item);
     });
+
+    item.addEventListener("click", () => {
+      if (!isTouchDevice()) return;
+      const isOpen = item.dataset.open === "true";
+      footerItems.forEach(closeFooterAccordion);
+      if (!isOpen) openFooterAccordion(item);
+    });
+  });
+
+  lenis.on("scroll", () => {
+    if (isTouchDevice()) footerItems.forEach(closeFooterAccordion);
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!isTouchDevice()) return;
+    if (!footerItems.some((item) => item.contains(e.target))) {
+      footerItems.forEach(closeFooterAccordion);
+    }
   });
 
   /* =====================================================
@@ -575,28 +616,6 @@ document.addEventListener("DOMContentLoaded", () => {
   /* Re-refresh after full load (images affect layout) */
   window.addEventListener("load", () => ScrollTrigger.refresh());
 
-  /* iOS: re-refresh when address bar shows/hides, but only once scroll has stopped */
-  if (window.visualViewport) {
-    let vvTimer;
-    let scrollIdleTimer;
-    let pendingRefresh = false;
-
-    lenis.on("scroll", () => {
-      clearTimeout(scrollIdleTimer);
-      scrollIdleTimer = setTimeout(() => {
-        if (pendingRefresh) {
-          pendingRefresh = false;
-          ScrollTrigger.refresh();
-        }
-      }, 300);
-    });
-
-    window.visualViewport.addEventListener("resize", () => {
-      clearTimeout(vvTimer);
-      vvTimer = setTimeout(() => { pendingRefresh = true; }, 150);
-    });
-  }
-
   /* =====================================================
      LOADER — CHAOTIC / ORGANIC
   ===================================================== */
@@ -617,7 +636,7 @@ document.addEventListener("DOMContentLoaded", () => {
     counterLoader.textContent = "00";
 
     lenis.stop();
-    document.body.style.overflow = "hidden";
+    if (pageWrapper) pageWrapper.style.overflow = "hidden";
 
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max);
 
@@ -657,7 +676,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const tl = gsap.timeline({
             onComplete: () => {
               gsap.set(loader, { display: "none" });
-              document.body.style.overflow = "";
+              if (pageWrapper) pageWrapper.style.overflow = "";
               lenis.start();
             },
           });
