@@ -4,13 +4,19 @@ echo ""
 echo "  Starting development environment..."
 echo ""
 
+# Kill any process already using port 8000
+lsof -ti:8000 | xargs kill -9 2>/dev/null
+
+# Resolve script directory (handles spaces in path)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Build + watch in background
-npx esbuild src/index.js \
+"$SCRIPT_DIR/node_modules/.bin/esbuild" src/index.js \
   --bundle \
   --outfile=dist/main.js \
   --format=iife \
   --target=es2020 \
-  --watch &
+  --watch=forever &
 ESBUILD_PID=$!
 
 sleep 1
@@ -21,18 +27,15 @@ SERVER_PID=$!
 
 sleep 1
 
-echo ""
-echo "  Creating public tunnel via serveo.net..."
+echo "  Creating public tunnel via Cloudflare..."
 echo "----------------------------------------------------"
 echo ""
 
-# Create tunnel via serveo.net
-ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:localhost:8000 serveo.net 2>&1 | while IFS= read -r line; do
-    echo "$line"
-    if [[ $line == *"Forwarding HTTP traffic from"* ]]; then
-        URL=$(echo "$line" | grep -oE 'https://[^ ]+')
+# Create tunnel via Cloudflare
+npx cloudflared tunnel --url http://localhost:8000 2>&1 | while IFS= read -r line; do
+    if [[ $line == *"trycloudflare.com"* ]]; then
+        URL=$(echo "$line" | grep -oE 'https://[^ ]+trycloudflare\.com')
         if [[ ! -z "$URL" ]]; then
-            echo ""
             echo "----------------------------------------------------"
             echo "  TUNNEL READY"
             echo "----------------------------------------------------"

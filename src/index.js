@@ -9,14 +9,6 @@ window.addEventListener("beforeunload", () => window.scrollTo(0, 0));
 
 document.addEventListener("DOMContentLoaded", () => {
   /* Hide loader counters immediately, set correct total (revealed later via GSAP fade) */
-  const _counter = document.querySelector("#counterLoader");
-  const _total = document.querySelector("#totalLoader");
-  if (_counter) _counter.style.opacity = "0";
-  if (_total) {
-    const n = document.querySelectorAll(".archive-item").length;
-    if (n) _total.textContent = String(n).padStart(2, "0");
-    _total.style.opacity = "0";
-  }
 
   /* =====================================================
      CORE — GSAP / LENIS SETUP
@@ -319,11 +311,6 @@ document.addEventListener("DOMContentLoaded", () => {
         name.textContent = `NA_Archive_${String(i + 1).padStart(2, "0")}.jpg`;
     });
 
-    const archiveIndex = qs("#archiveIndex");
-    if (archiveIndex) {
-      archiveIndex.textContent = `${String(archiveItems.length).padStart(2, "0")} Archives`;
-    }
-
     gsap.set(archiveItems, { opacity: 0, y: -32 });
 
     ScrollTrigger.batch(archiveItems, {
@@ -435,6 +422,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSlider();
+    if (!isSliderOpen) return;
+    if (e.key === "ArrowRight") showSlide((currentIndex + 1) % sliderItems.length);
+    if (e.key === "ArrowLeft") showSlide((currentIndex - 1 + sliderItems.length) % sliderItems.length);
   });
 
   /* =====================================================
@@ -499,9 +489,8 @@ document.addEventListener("DOMContentLoaded", () => {
   ===================================================== */
 
   const mainSticky = qs(".main");
-  const blackTexts = qsa(".fc-black");
 
-  if (about && progressBar && mainSticky && blackTexts.length) {
+  if (about && progressBar && mainSticky) {
     const whiteColor = resolveVar("--white");
 
     ScrollTrigger.create({
@@ -510,12 +499,10 @@ document.addEventListener("DOMContentLoaded", () => {
       invalidateOnRefresh: true,
       onEnter: () => {
         gsap.set(progressBar, { backgroundColor: whiteColor });
-        gsap.set(blackTexts, { color: whiteColor });
         gsap.set(mainSticky, { mixBlendMode: "normal" });
       },
       onLeaveBack: () => {
         gsap.set(progressBar, { clearProps: "backgroundColor" });
-        gsap.set(blackTexts, { clearProps: "color" });
         gsap.set(mainSticky, { clearProps: "mixBlendMode" });
       },
     });
@@ -585,15 +572,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
   ScrollTrigger.refresh();
 
+  /* Re-refresh after full load (images affect layout) */
+  window.addEventListener("load", () => ScrollTrigger.refresh());
+
+  /* iOS: re-refresh when address bar shows/hides, but only once scroll has stopped */
+  if (window.visualViewport) {
+    let vvTimer;
+    let scrollIdleTimer;
+    let pendingRefresh = false;
+
+    lenis.on("scroll", () => {
+      clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = setTimeout(() => {
+        if (pendingRefresh) {
+          pendingRefresh = false;
+          ScrollTrigger.refresh();
+        }
+      }, 300);
+    });
+
+    window.visualViewport.addEventListener("resize", () => {
+      clearTimeout(vvTimer);
+      vvTimer = setTimeout(() => { pendingRefresh = true; }, 150);
+    });
+  }
+
   /* =====================================================
      LOADER — CHAOTIC / ORGANIC
   ===================================================== */
 
   const loader = qs(".loader");
   const counterLoader = qs("#counterLoader");
-  const totalLoader = qs("#totalLoader");
 
-  if (loader && counterLoader && totalLoader) {
+  if (loader && counterLoader) {
     const TOTAL = archiveItems.length;
 
     const WAIT_BEFORE_START = 1000;
@@ -604,14 +615,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let lastUpdate = 0;
 
     counterLoader.textContent = "00";
-    totalLoader.textContent = String(TOTAL).padStart(2, "0");
-
-    /* Fade in both counters during the wait period */
-    gsap.to([counterLoader, totalLoader], {
-      opacity: 1,
-      duration: FADE_DURATION,
-      ease: FADE_EASE,
-    });
 
     lenis.stop();
     document.body.style.overflow = "hidden";
@@ -659,7 +662,7 @@ document.addEventListener("DOMContentLoaded", () => {
             },
           });
 
-          tl.to([counterLoader, totalLoader], {
+          tl.to(counterLoader, {
             opacity: 0,
             duration: 0.4,
             ease: "power1.out",
