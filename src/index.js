@@ -389,11 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       updateSliderUI(currentIndex);
 
-      gsap.to(slider, {
-        opacity: 1,
-        pointerEvents: "auto",
-        duration: FADE_DURATION,
-      });
+      gsap.set(slider, { display: "flex" });
     });
   });
 
@@ -411,11 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     isSliderOpen = false;
 
-    gsap.to(slider, {
-      opacity: 0,
-      pointerEvents: "none",
-      duration: FADE_DURATION,
-    });
+    gsap.set(slider, { display: "none" });
 
     unlockScroll();
   };
