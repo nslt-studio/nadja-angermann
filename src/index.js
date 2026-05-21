@@ -1,6 +1,7 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
+import EmblaCarousel from "embla-carousel";
 
 /* Force scroll top on load/reload */
 history.scrollRestoration = "manual";
@@ -362,17 +363,20 @@ document.addEventListener("DOMContentLoaded", () => {
     sliderCounter.textContent = `${String(index + 1).padStart(2, "0")}/${totalStr}`;
   };
 
-  const showSlide = (newIndex) => {
-    if (newIndex === currentIndex) return;
+  const sliderList = qs(".slider-list", slider);
+  let embla = null;
 
-    const current = sliderItems[currentIndex];
-    const next = sliderItems[newIndex];
-
-    gsap.to(current, { opacity: 0, duration: FADE_DURATION, overwrite: true });
-    gsap.to(next, { opacity: 1, duration: FADE_DURATION, overwrite: true });
-
-    currentIndex = newIndex;
-    updateSliderUI(currentIndex);
+  const initEmbla = () => {
+    if (embla || !slider || !sliderList) return;
+    embla = EmblaCarousel(slider, {
+      container: sliderList,
+      loop: true,
+      dragFree: false,
+    });
+    embla.on("select", () => {
+      currentIndex = embla.selectedScrollSnap();
+      updateSliderUI(currentIndex);
+    });
   };
 
   archiveItems.forEach((item, index) => {
@@ -383,32 +387,26 @@ document.addEventListener("DOMContentLoaded", () => {
       currentIndex = index;
 
       lockScroll();
-
-      gsap.set(sliderItems, { opacity: 0 });
-      gsap.set(sliderItems[currentIndex], { opacity: 1 });
-
-      updateSliderUI(currentIndex);
-
       gsap.set(slider, { display: "flex" });
+
+      initEmbla();
+      embla.scrollTo(currentIndex, true);
+      updateSliderUI(currentIndex);
     });
   });
 
   sliderNext?.addEventListener("click", () => {
-    if (isSliderOpen) showSlide((currentIndex + 1) % sliderItems.length);
+    if (isSliderOpen) embla?.scrollNext();
   });
 
   sliderPrev?.addEventListener("click", () => {
-    if (isSliderOpen)
-      showSlide((currentIndex - 1 + sliderItems.length) % sliderItems.length);
+    if (isSliderOpen) embla?.scrollPrev();
   });
 
   const closeSlider = () => {
     if (!isSliderOpen) return;
-
     isSliderOpen = false;
-
     gsap.set(slider, { display: "none" });
-
     unlockScroll();
   };
 
@@ -417,8 +415,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSlider();
     if (!isSliderOpen) return;
-    if (e.key === "ArrowRight") showSlide((currentIndex + 1) % sliderItems.length);
-    if (e.key === "ArrowLeft") showSlide((currentIndex - 1 + sliderItems.length) % sliderItems.length);
+    if (e.key === "ArrowRight") embla?.scrollNext();
+    if (e.key === "ArrowLeft") embla?.scrollPrev();
   });
 
   /* =====================================================
